@@ -16,7 +16,7 @@ driver = '{ODBC Driver 18 for SQL Server}'
 """
 app.add_middleware(
   CORSMiddleware,
-  allow_origins=["blazestar23X.github.io/React/"],
+  allow_origins=["blazestar23X.github.io"],
   allow_credentials=True,
   allow_methods=["*"],
   allow_headers=["*"],
