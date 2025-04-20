@@ -16,7 +16,7 @@ driver = '{ODBC Driver 18 for SQL Server}'
 """
 app.add_middleware(
   CORSMiddleware,
-  allow_origins=["https://localhost:3000"],
+  allow_origins=["blazestar23X.github.io/React/"],
   allow_credentials=True,
   allow_methods=["*"],
   allow_headers=["*"],
@@ -43,21 +43,15 @@ def test_connection():
   except Exception as e:
     return {"error":str(e)}
 
-@app.get("/get-data")
+@app.get("/data")
 def get_data():
-  try:
-    connection = pyodbc.connect(conn_str)
-    cursor = connection.cursor()
-    insert_query = "INSERT INTO Users(UsersID,LastName,FirstName,Address,City) VALUES (?,?,?,?,?)"
-    values = (2,"GPT","Chat","Internet","OpeAI")
-    cursor.execute(insert_query,values)
-    connection.commit()
+  with pyodbc.connect(conn_str) as conn:
+    cursor = conn.cursor()
     cursor.execute("SELECT * FROM Users")
     columns = [column[0] for column in cursor.description]
-    results = [dict(zip(columns,row)) for row in cursor.fetchall()]
-    return results
-  except Exception as e:
-    return {"error":str(e)}
+    rows = cursor.fetchall()
+    result = [dict(zip(columns,row))for row in rows]
+    return result
 
 @app.get("/posts")
 def get_blog_posts():
