@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowCall Dashboard - Manage Plumbing Requests</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [v-cloak] { display: none; }
+        .request-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .request-card:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased">
+    <div id="app" v-cloak class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-1.5 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">FlowCall <span class="text-slate-400 font-medium">Dashboard</span></h1>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button @click="fetchRequests" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-3 py-1.5 rounded-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="{'animate-spin': loading}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                </button>
+                <div class="h-8 w-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold text-sm">
+                    P
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-grow p-6 max-w-7xl mx-auto w-full">
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div v-for="stat in stats" :key="stat.label" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">{{ stat.label }}</div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-3xl font-bold" :class="stat.color">{{ stat.value }}</div>
+                        <div :class="stat.bgColor" class="p-2 rounded-lg">
+                            <component :is="stat.icon" class="h-5 w-5" :class="stat.color"></component>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="relative">
+                        <select v-model="filters.status" class="appearance-none bg-slate-50 border border-slate-200 rounded-lg pl-4 pr-10 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <option value="">All Statuses</option>
+                            <option value="new">New</option>
+                            <option value="notified_plumber">Notified</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <select v-model="filters.priority" class="appearance-none bg-slate-50 border border-slate-200 rounded-lg pl-4 pr-10 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                            <option value="">All Priorities</option>
+                            <option value="urgent">Urgent</option>
+                            <option value="standard">Standard</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="relative flex-grow max-w-md">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input v-model="filters.search" type="text" placeholder="Search name, phone, or problem..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="loading && requests.length === 0" class="py-20 flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
+                <p class="text-slate-500 font-medium">Fetching latest requests...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="filteredRequests.length === 0" class="py-20 bg-white rounded-2xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center px-6">
+                <div class="bg-slate-100 p-4 rounded-full mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">No requests found</h3>
+                <p class="text-slate-500 max-w-sm mx-auto">Either there are no new plumbing requests or your filters are too strict.</p>
+                <button @click="resetFilters" class="mt-4 text-blue-600 font-bold hover:underline">Clear all filters</button>
+            </div>
+
+            <!-- Requests List -->
+            <div v-else class="space-y-4">
+                <div v-for="request in sortedRequests" :key="request.id" 
+                    class="request-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row">
+                    <!-- Left Color Bar (Priority) -->
+                    <div :class="priorityColor(request.priority)" class="w-full md:w-2 h-2 md:h-auto"></div>
+                    
+                    <div class="flex-grow p-6">
+                        <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-4">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span :class="priorityBadge(request.priority)" class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md tracking-wider">
+                                        {{ request.priority }}
+                                    </span>
+                                    <span :class="statusBadge(request.status)" class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md tracking-wider bg-slate-100 text-slate-600">
+                                        {{ request.status.replace('_', ' ') }}
+                                    </span>
+                                    <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                                        {{ request.source }}
+                                    </span>
+                                </div>
+                                <h3 class="text-xl font-bold text-slate-900">{{ request.customer_name }}</h3>
+                                <div class="flex items-center gap-4 mt-2 text-sm text-slate-500 font-medium">
+                                    <a :href="'tel:' + request.customer_phone" class="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                        </svg>
+                                        {{ request.customer_phone }}
+                                    </a>
+                                    <span v-if="request.customer_email" class="flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        {{ request.customer_email }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-slate-900">{{ formatRelativeTime(request.created_at) }}</p>
+                                <p class="text-xs text-slate-400">{{ formatFullDate(request.created_at) }}</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 border border-slate-100 rounded-lg p-4 mb-4">
+                            <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{{ request.description }}</p>
+                        </div>
+
+                        <div v-if="request.notes" class="mb-4">
+                            <h4 class="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Internal Notes</h4>
+                            <p class="text-sm text-slate-600 italic">"{{ request.notes }}"</p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <button @click="updateStatus(request, 'contacted')" 
+                                    v-if="request.status !== 'contacted' && request.status !== 'resolved'"
+                                    class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                                    Mark Contacted
+                                </button>
+                                <button @click="updateStatus(request, 'resolved')"
+                                    v-if="request.status !== 'resolved'"
+                                    class="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50 transition-all shadow-sm">
+                                    Mark Resolved
+                                </button>
+                                <button @click="openNotes(request)"
+                                    class="text-blue-600 hover:text-blue-700 px-4 py-2 text-sm font-bold transition-colors">
+                                    Edit Details
+                                </button>
+                            </div>
+                            <button @click="reNotify(request)" class="text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Modal for Notes/Details -->
+        <div v-if="editingRequest" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @click.self="editingRequest = null">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-lg font-bold">Update Request</h3>
+                    <button @click="editingRequest = null" class="text-slate-400 hover:text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-6 space-y-6">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Status</label>
+                        <select v-model="editingRequest.status" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="new">New</option>
+                            <option value="notified_plumber">Notified Plumber</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Internal Notes</label>
+                        <textarea v-model="editingRequest.notes" rows="4" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter notes here..."></textarea>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+                    <button @click="editingRequest = null" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                    <button @click="saveRequest" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-lg">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+            <div v-for="toast in toasts" :key="toast.id" :class="toast.type === 'error' ? 'bg-red-600' : 'bg-slate-900'" class="text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce">
+                <span class="text-sm font-medium">{{ toast.message }}</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const requests = ref([]);
+                const loading = ref(false);
+                const editingRequest = ref(null);
+                const toasts = ref([]);
+                const filters = ref({
+                    status: '',
+                    priority: '',
+                    search: ''
+                });
+
+                const fetchRequests = async () => {
+                    loading.value = true;
+                    try {
+                        const response = await fetch('/api/requests');
+                        if (!response.ok) throw new Error('Failed to load requests');
+                        requests.value = await response.json();
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const filteredRequests = computed(() => {
+                    return requests.value.filter(req => {
+                        const matchesStatus = !filters.value.status || req.status === filters.value.status;
+                        const matchesPriority = !filters.value.priority || req.priority === filters.value.priority;
+                        const searchLower = filters.value.search.toLowerCase();
+                        const matchesSearch = !filters.value.search || 
+                            req.customer_name.toLowerCase().includes(searchLower) || 
+                            req.customer_phone.includes(searchLower) || 
+                            req.description.toLowerCase().includes(searchLower);
+                        
+                        return matchesStatus && matchesPriority && matchesSearch;
+                    });
+                });
+
+                const sortedRequests = computed(() => {
+                    const priorityOrder = { 'urgent': 0, 'standard': 1, 'low': 2 };
+                    return [...filteredRequests.value].sort((a, b) => {
+                        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                            return priorityOrder[a.priority] - priorityOrder[b.priority];
+                        }
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    });
+                });
+
+                const stats = computed(() => [
+                    { label: 'New', value: requests.value.filter(r => r.status === 'new').length, color: 'text-blue-600', bgColor: 'bg-blue-100', icon: 'svg' },
+                    { label: 'Urgent', value: requests.value.filter(r => r.priority === 'urgent').length, color: 'text-red-600', bgColor: 'bg-red-100', icon: 'svg' },
+                    { label: 'Pending', value: requests.value.filter(r => r.status === 'contacted').length, color: 'text-amber-600', bgColor: 'bg-amber-100', icon: 'svg' },
+                    { label: 'Resolved Today', value: requests.value.filter(r => r.status === 'resolved').length, color: 'text-green-600', bgColor: 'bg-green-100', icon: 'svg' }
+                ]);
+
+                const updateStatus = async (request, newStatus) => {
+                    try {
+                        const response = await fetch(`/api/requests/${request.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: newStatus })
+                        });
+                        if (!response.ok) throw new Error('Failed to update status');
+                        const updated = await response.json();
+                        const index = requests.value.findIndex(r => r.id === request.id);
+                        if (index !== -1) requests.value[index] = updated;
+                        showToast(`Request marked as ${newStatus}`);
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                    }
+                };
+
+                const openNotes = (request) => {
+                    editingRequest.value = { ...request };
+                };
+
+                const saveRequest = async () => {
+                    try {
+                        const response = await fetch(`/api/requests/${editingRequest.value.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                status: editingRequest.value.status,
+                                notes: editingRequest.value.notes
+                            })
+                        });
+                        if (!response.ok) throw new Error('Failed to save changes');
+                        const updated = await response.json();
+                        const index = requests.value.findIndex(r => r.id === updated.id);
+                        if (index !== -1) requests.value[index] = updated;
+                        editingRequest.value = null;
+                        showToast('Changes saved successfully');
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                    }
+                };
+
+                const reNotify = async (request) => {
+                    try {
+                        const response = await fetch('/api/notify-plumber', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ request_id: request.id })
+                        });
+                        if (response.ok) {
+                            showToast('Notification resent to plumber');
+                        } else {
+                            // Fallback to the other endpoint
+                            const res2 = await fetch(`/api/requests/${request.id}/notify`, { method: 'POST' });
+                            if (res2.ok) showToast('Notification resent to plumber');
+                            else throw new Error('Failed to notify plumber');
+                        }
+                    } catch (error) {
+                        showToast(error.message, 'error');
+                    }
+                };
+
+                const resetFilters = () => {
+                    filters.value = { status: '', priority: '', search: '' };
+                };
+
+                const showToast = (message, type = 'success') => {
+                    const id = Date.now();
+                    toasts.value.push({ id, message, type });
+                    setTimeout(() => {
+                        toasts.value = toasts.value.filter(t => t.id !== id);
+                    }, 3000);
+                };
+
+                const formatRelativeTime = (dateStr) => {
+                    if (!dateStr) return '—';
+                    // Convert "YYYY-MM-DD HH:mm:ss" to "YYYY-MM-DDTHH:mm:ss" for better cross-browser support
+                    const normalizedStr = dateStr.includes(' ') && !dateStr.includes('T') 
+                        ? dateStr.replace(' ', 'T') 
+                        : dateStr;
+                    const date = new Date(normalizedStr);
+                    if (isNaN(date.getTime())) return '—';
+                    const now = new Date();
+                    const seconds = Math.floor((now - date) / 1000);
+                    if (seconds < 60) return 'Just now';
+                    const minutes = Math.floor(seconds / 60);
+                    if (minutes < 60) return `${minutes}m ago`;
+                    const hours = Math.floor(minutes / 60);
+                    if (hours < 24) return `${hours}h ago`;
+                    const days = Math.floor(hours / 24);
+                    return `${days}d ago`;
+                };
+
+                const formatFullDate = (dateStr) => {
+                    if (!dateStr) return '—';
+                    const normalizedStr = dateStr.includes(' ') && !dateStr.includes('T') 
+                        ? dateStr.replace(' ', 'T') 
+                        : dateStr;
+                    const date = new Date(normalizedStr);
+                    if (isNaN(date.getTime())) return '—';
+                    return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                };
+
+                const priorityColor = (p) => {
+                    return {
+                        'urgent': 'bg-red-500',
+                        'standard': 'bg-amber-500',
+                        'low': 'bg-green-500'
+                    }[p] || 'bg-slate-300';
+                };
+
+                const priorityBadge = (p) => {
+                    return {
+                        'urgent': 'bg-red-100 text-red-700',
+                        'standard': 'bg-amber-100 text-amber-700',
+                        'low': 'bg-green-100 text-green-700'
+                    }[p] || 'bg-slate-100 text-slate-700';
+                };
+
+                const statusBadge = (s) => {
+                    return {
+                        'new': 'bg-blue-100 text-blue-700',
+                        'notified_plumber': 'bg-purple-100 text-purple-700',
+                        'contacted': 'bg-cyan-100 text-cyan-700',
+                        'resolved': 'bg-green-100 text-green-700'
+                    }[s] || 'bg-slate-100 text-slate-700';
+                };
+
+                onMounted(() => {
+                    fetchRequests();
+                    setInterval(fetchRequests, 30000);
+                });
+
+                return {
+                    requests, loading, filters, editingRequest, toasts,
+                    filteredRequests, sortedRequests, stats,
+                    fetchRequests, updateStatus, openNotes, saveRequest, reNotify, resetFilters,
+                    formatRelativeTime, formatFullDate, priorityColor, priorityBadge, statusBadge
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
